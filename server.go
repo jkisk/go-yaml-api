@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -12,6 +13,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// Appdata is a struct for app info
 type Appdata struct {
 	Title       string       `yaml:"title" validate:"nonzero"`
 	Version     string       `yaml:"version" validate:"nonzero"`
@@ -23,43 +25,46 @@ type Appdata struct {
 	Description string       `yaml:"description" validate:"nonzero"`
 }
 
+// Maintainer is a struct for maintainer info
 type Maintainer struct {
 	Name  string `yaml:"name" validate:"nonzero"`
 	Email string `yaml:"email" validate:"regexp=^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$"`
 }
 
-var ds []Appdata
+var dataStore []Appdata
 
+// GetHandler retrieves all records
 func GetHandler(w http.ResponseWriter, req *http.Request) {
-
-	yamlData, err := yaml.Marshal(ds)
+	yamlData, err := yaml.Marshal(dataStore)
 	if err != nil {
 		fmt.Println(err)
 	}
 	result := string(yamlData)
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "results:", result)
-
+	w.Header().Set("Content-Type", "application/x-yaml")
+	fmt.Fprintf(w, "results:\n%s", result)
 }
 
+// QueryHandler retrieves records by title
 func QueryHandler(w http.ResponseWriter, req *http.Request) {
-	queryParams := req.URL.Query()
-	for _, item := range ds {
-		if item.Title == queryParams["title"][0] {
+	params := mux.Vars(req)
+	var result []string
+	for _, item := range dataStore {
+		if strings.ToLower(item.Title) == strings.ToLower(params["title"]) {
 			yamlItem, err := yaml.Marshal(item)
 			if err != nil {
 				fmt.Println(err)
 			}
-			result := string(yamlItem)
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, "result:\n%s", result)
-			return
+			result = append(result, string(yamlItem))
 		}
 	}
-
+	if result != nil {
+		w.Header().Set("Content-Type", "application/x-yaml")
+		fmt.Fprintf(w, "result:\n%s", result)
+	}
 	w.WriteHeader(http.StatusNotFound)
 }
 
+// PostHandler creates a new record in the data store
 func PostHandler(w http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -67,7 +72,6 @@ func PostHandler(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
 	newData := Appdata{}
 	err = yaml.UnmarshalStrict(body, &newData)
 	if err != nil {
@@ -80,12 +84,12 @@ func PostHandler(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprint(w, "missing or invalid required field")
 		return
 	}
-
-	ds = append(ds, newData)
+	dataStore = append(dataStore, newData)
 	yamlData, err := yaml.Marshal(newData)
 	if err != nil {
 		fmt.Println(err)
 	}
+	w.Header().Set("Content-Type", "application/x-yaml")
 	w.WriteHeader(http.StatusCreated)
 	result := string(yamlData)
 	fmt.Fprintf(w, "--- entry created:\n%v\n\n", result)
@@ -93,17 +97,16 @@ func PostHandler(w http.ResponseWriter, req *http.Request) {
 
 func seedData() {
 	d1 := Appdata{"Valid App 2", "1.0.1", []Maintainer{{"Sam Brown", "Sam@gmail.com"}, {"Fam Brown", "Fam@gmail.com"}}, "1", "2", "3", "4", "5"}
-	ds = append(ds, d1)
+	dataStore = append(dataStore, d1)
 }
 
 func main() {
 	seedData()
 
 	router := mux.NewRouter()
-	router.HandleFunc("/", GetHandler).Methods("GET")
+	router.HandleFunc("/applications", GetHandler).Methods("GET")
 	router.HandleFunc("/applications", PostHandler).Methods("POST")
-	router.HandleFunc("/applications", QueryHandler).Methods("GET")
-	router.Queries("title", "version", "company")
+	router.HandleFunc("/applications/{title}", QueryHandler).Methods("GET")
 
 	server := &http.Server{
 		Handler:      router,
