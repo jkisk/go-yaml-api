@@ -60,8 +60,10 @@ func QueryHandler(w http.ResponseWriter, req *http.Request) {
 	if result != nil {
 		w.Header().Set("Content-Type", "application/x-yaml")
 		fmt.Fprintf(w, "result:\n%s", result)
+		return
 	}
 	w.WriteHeader(http.StatusNotFound)
+
 }
 
 // PostHandler creates a new record in the data store
