@@ -41,7 +41,7 @@ func GetHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	result := string(yamlData)
 	w.Header().Set("Content-Type", "application/x-yaml")
-	fmt.Fprintf(w, "results:\n%s", result)
+	fmt.Fprintf(w, "%s", result)
 }
 
 // QueryHandler retrieves records by title
@@ -59,11 +59,10 @@ func QueryHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	if result != nil {
 		w.Header().Set("Content-Type", "application/x-yaml")
-		fmt.Fprintf(w, "result:\n%s", result)
+		fmt.Fprintf(w, "%s", result)
 		return
 	}
 	w.WriteHeader(http.StatusNotFound)
-
 }
 
 // PostHandler creates a new record in the data store
@@ -94,17 +93,10 @@ func PostHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/x-yaml")
 	w.WriteHeader(http.StatusCreated)
 	result := string(yamlData)
-	fmt.Fprintf(w, "--- entry created:\n%v\n\n", result)
-}
-
-func seedData() {
-	d1 := Appdata{"Valid App 2", "1.0.1", []Maintainer{{"Sam Brown", "Sam@gmail.com"}, {"Fam Brown", "Fam@gmail.com"}}, "1", "2", "3", "4", "5"}
-	dataStore = append(dataStore, d1)
+	fmt.Fprintf(w, "%v", result)
 }
 
 func main() {
-	seedData()
-
 	router := mux.NewRouter()
 	router.HandleFunc("/applications", GetHandler).Methods("GET")
 	router.HandleFunc("/applications", PostHandler).Methods("POST")
